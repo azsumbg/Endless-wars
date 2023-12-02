@@ -85,6 +85,10 @@ int name_size = 9;
 
 int field_frame = 0;
 int field_delay = 0;
+
+D2D1_POINT_2F bad_army_center = { 0,0 };
+D2D1_POINT_2F good_army_center = { 0,0 };
+
 ////////////////////////////////////////////////////
 
 ID2D1Factory* iFactory = nullptr;
@@ -118,6 +122,17 @@ ID2D1Bitmap* bmpGood[8];
 ID2D1Bitmap* bmpBad[40];
 /////////////////////////////////////////////////////
 
+Object Castle = nullptr;
+Object Knight = nullptr;
+
+std::vector<Warrior> vGoodArmy;
+std::vector<Warrior> vBadArmy;
+
+int good_waves = 0;
+int bad_waves = 0;
+
+
+/////////////////////////////////////////////////////
 template <typename COM> void ReleaseCOM(COM** which)
 {
     if ((*which))
@@ -491,6 +506,27 @@ void InitGame()
     level = 1;
     score = 0;
     seconds = 0;
+
+    good_waves = level + 5;
+    bad_waves = level + 8;
+
+    vGoodArmy.clear();
+    vBadArmy.clear();
+
+    good_army_center = { 0,0 };
+    bad_army_center = { 0,0 };
+
+    if (Castle)Castle->Release();
+    float randx = (float)(rand() % 250);
+    if (randx < 100.0f)randx = 100.0f;
+
+    Castle = new OBJECT(randx, 55.0f, 150.0f, 120.0f);
+
+    if (Knight)Knight->Release();
+    randx = (float)(rand() % 320);
+    if (randx < 100.0f)randx = 100.0f;
+    Knight = new OBJECT(randx, 650.0f, 80.0f, 97.0f);
+    if (Knight)Knight->dir = dirs::right;
 }
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -792,10 +828,39 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             Draw->EndDraw();
             continue;
         }
+        ///////////////////////////////////////////////////////////
 
+        // GAME ENGINE *************************************
+
+        if (Knight)
+        {
+            if (Knight->dir == dirs::right)
+            {
+                Knight->x += 0.5f;
+                Knight->SetDims();
+                if (Knight->ex >= 400.0f)Knight->dir = dirs::left;
+            }
+            if (Knight->dir == dirs::left)
+            {
+                Knight->x -= 0.5f;
+                Knight->SetDims();
+                if (Knight->x <= 100.0f)Knight->dir = dirs::right;
+            }
+        }
+         
+        //CENTERS OF ARMIES *******************************
+
+        if (!vGoodArmy.empty())
+        {
+            good_army_center.x = vGoodArmy[vGoodArmy.size() / 2]->x;
+            good_army_center.y = vGoodArmy[vGoodArmy.size() / 2]->y;
+        }
         
-        
-        
+        if (!vBadArmy.empty())
+        {
+            bad_army_center.x = vBadArmy[vBadArmy.size() / 2]->x;
+            bad_army_center.y = vBadArmy[vBadArmy.size() / 2]->y;
+        }
         
         
         
@@ -841,6 +906,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             else
                 Draw->DrawText(L"Помощ", 6, nrmTextFormat, D2D1::RectF(410.0f, 0, (float)b3Rect.right, 50.0f),
                     HgltButTxt);
+        }
+
+        if (Castle)Draw->DrawBitmap(bmpCastle, D2D1::RectF(Castle->x, Castle->y, Castle->ex, Castle->ey));
+        if (Knight)
+        {
+            if (Knight->dir == dirs::right)
+                Draw->DrawBitmap(bmpKnightR, D2D1::RectF(Knight->x, Knight->y, Knight->ex, Knight->ey));
+            else if (Knight->dir == dirs::left)
+                Draw->DrawBitmap(bmpKnightL, D2D1::RectF(Knight->x, Knight->y, Knight->ex, Knight->ey));
         }
 
         /////////////////////////////////////////////////////////////////////////////////
