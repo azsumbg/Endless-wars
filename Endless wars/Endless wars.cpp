@@ -80,6 +80,9 @@ int level = 1;
 int score = 0;
 int seconds = 0;
 
+int bad_move_wait = 30;
+int good_move_wait = 30;
+
 wchar_t current_player[16] = L"A PLAYER";
 int name_size = 9;
 
@@ -99,6 +102,10 @@ ID2D1SolidColorBrush* ButTxt = nullptr;
 ID2D1SolidColorBrush* HgltButTxt = nullptr;
 ID2D1SolidColorBrush* InactiveButTxt = nullptr;
 ID2D1SolidColorBrush* ForceTxt = nullptr;
+
+ID2D1SolidColorBrush* GreenLife = nullptr;
+ID2D1SolidColorBrush* YellowLife = nullptr;
+ID2D1SolidColorBrush* RedLife = nullptr;
 
 IDWriteFactory* iWriteFactory = nullptr;
 IDWriteTextFormat* bigTextFormat = nullptr;
@@ -131,6 +138,8 @@ std::vector<Warrior> vBadArmy;
 int good_waves = 0;
 int bad_waves = 0;
 
+int good_lifes = 480;
+int bad_lifes = 480;
 
 /////////////////////////////////////////////////////
 template <typename COM> void ReleaseCOM(COM** which)
@@ -150,6 +159,11 @@ void SafeRelease()
     ReleaseCOM(&HgltButTxt);
     ReleaseCOM(&InactiveButTxt);
     ReleaseCOM(&ForceTxt);
+
+    ReleaseCOM(&GreenLife);
+    ReleaseCOM(&YellowLife);
+    ReleaseCOM(&RedLife);
+    
 
     ReleaseCOM(&iWriteFactory);
     ReleaseCOM(&bigTextFormat);
@@ -291,6 +305,36 @@ void InitD2D1()
         ErrExit(eD2D);
     }
 
+    hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Green), &GreenLife);
+    if (hr != S_OK)
+    {
+        std::wofstream err(L".\\res\\data\\error.log", std::ios::app);
+        err << L"Error creating D2D1 SolidColorBrush - green life brush !" << std::endl;
+        err.close();
+        ErrExit(eD2D);
+    }
+
+    hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::IndianRed), &YellowLife);
+    if (hr != S_OK)
+    {
+        std::wofstream err(L".\\res\\data\\error.log", std::ios::app);
+        err << L"Error creating D2D1 SolidColorBrush - yellow life brush !" << std::endl;
+        err.close();
+        ErrExit(eD2D);
+    }
+
+    hr = Draw->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::DarkRed), &RedLife);
+    if (hr != S_OK)
+    {
+        std::wofstream err(L".\\res\\data\\error.log", std::ios::app);
+        err << L"Error creating D2D1 SolidColorBrush - red life brush !" << std::endl;
+        err.close();
+        ErrExit(eD2D);
+    }
+
+    
+    
+    ///////////////////////////////////
     hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&iWriteFactory));
     if (hr != S_OK)
     {
@@ -490,7 +534,7 @@ void InitD2D1()
         Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkCyan));
         show_text[i] = start_text[i];
         if (bigTextFormat && ButTxt)
-            Draw->DrawText(show_text, i, bigTextFormat, D2D1::RectF(100.0f, 200.0f, client_width, client_height),
+            Draw->DrawText(show_text, i, bigTextFormat, D2D1::RectF(80.0f, 200.0f, client_width, client_height),
                 ButTxt);
         Draw->EndDraw();
         Sleep(50);
@@ -509,6 +553,9 @@ void InitGame()
 
     good_waves = level + 5;
     bad_waves = level + 8;
+    good_lifes = 480;
+    bad_lifes = 480;
+
 
     vGoodArmy.clear();
     vBadArmy.clear();
@@ -520,12 +567,12 @@ void InitGame()
     float randx = (float)(rand() % 250);
     if (randx < 100.0f)randx = 100.0f;
 
-    Castle = new OBJECT(randx, 55.0f, 150.0f, 120.0f);
+    Castle = new OBJECT(randx, 70.0f, 150.0f, 120.0f);
 
     if (Knight)Knight->Release();
     randx = (float)(rand() % 320);
     if (randx < 100.0f)randx = 100.0f;
-    Knight = new OBJECT(randx, 650.0f, 80.0f, 97.0f);
+    Knight = new OBJECT(randx, 570.0f, 80.0f, 97.0f);
     if (Knight)Knight->dir = dirs::right;
 }
 
@@ -723,8 +770,17 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
     case WM_TIMER:
         if (pause)break;
+        if (seconds % 20 == 0 && bad_waves > 0)
+        {
+            seconds = 1;
+            for (int i = 0; i < 10; i++)
+            {
+                if (Castle)
+                    vBadArmy.push_back(iCreateWarrior(types::bad, (float)(Castle->x + rand() % 150), Castle->ey));
+            }
+            bad_waves--;
+        }
         seconds++;
-
         break;
 
     case WM_COMMAND:
@@ -749,9 +805,22 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         }
         break;
 
-
-
-
+    case WM_LBUTTONDOWN:
+        if (pause)break;
+        if (good_waves > 0)
+        {
+            if (Knight)
+            {
+                for (int i = 0; i < 10; ++i)
+                {
+                    if (Knight)
+                        vGoodArmy.push_back(iCreateWarrior(types::good, (float)(Knight->x + rand() %80), Knight->y));
+                }
+                good_waves--;
+            }
+        }
+        else if (sound)mciSendString(L"play .\\res\\negative.wav", NULL, NULL, NULL);
+        break;
 
     default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
     }
@@ -846,24 +915,113 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 Knight->SetDims();
                 if (Knight->x <= 100.0f)Knight->dir = dirs::right;
             }
+
         }
          
         //CENTERS OF ARMIES *******************************
 
         if (!vGoodArmy.empty())
         {
-            good_army_center.x = vGoodArmy[vGoodArmy.size() / 2]->x;
-            good_army_center.y = vGoodArmy[vGoodArmy.size() / 2]->y;
+            good_army_center.x = (*vGoodArmy.begin())->x;
+            good_army_center.y = (*vGoodArmy.begin())->y;
+        }
+        else if (Knight)
+        {
+            good_army_center.x = Knight->x;
+            good_army_center.y = Knight->y;
         }
         
         if (!vBadArmy.empty())
         {
-            bad_army_center.x = vBadArmy[vBadArmy.size() / 2]->x;
-            bad_army_center.y = vBadArmy[vBadArmy.size() / 2]->y;
+            bad_army_center.x = (*vBadArmy.begin())->x;
+            bad_army_center.y = (*vBadArmy.begin())->y;
         }
+        else if(Castle)
+        {
+            bad_army_center.x = Castle->ex;
+            bad_army_center.y = Castle->ey;
+        }
+        ///////////////////////////////////////////////////
+
+        if (!vGoodArmy.empty())
+        {
+            if (good_move_wait < 0)
+            {
+                good_move_wait = 20;
+                for (std::vector<Warrior>::iterator good = vGoodArmy.begin(); good < vGoodArmy.end(); ++good)
+                {
+                    (*good)->Move(bad_army_center.x, bad_army_center.y);
+                    if ((*good)->OutOfScreen(-1, Castle->y, false, false))
+                    {
+                        (*good)->Release();
+                        vGoodArmy.erase(good);
+                        score += 10 + 2 * level;
+                        bad_lifes -= 20;
+                        break;
+                    }
+                }
+            } else good_move_wait--;
+        }
+
+        if (!vBadArmy.empty())
+        {
+            if (bad_move_wait < 0)
+            {
+                for (std::vector<Warrior>::iterator bad = vBadArmy.begin(); bad < vBadArmy.end(); ++bad)
+                {
+                    (*bad)->Move(good_army_center.x, good_army_center.y);
+                   if ((*bad)->OutOfScreen(-1, Knight->ey, false, true))
+                    {
+                        good_lifes -= 20;
+                        (*bad)->Release();
+                        vBadArmy.erase(bad);
+                        break;
+                    }
+                }
+                bad_move_wait = 20;
+            }
+            else bad_move_wait--;
+        }
+
+        //FIGHT ************************************
+
+        if (!vGoodArmy.empty() && !vBadArmy.empty())
+        {
+            bool killed = false;
+            for (std::vector<Warrior>::iterator good = vGoodArmy.begin(); good < vGoodArmy.end(); good++)
+            {
+                for (std::vector<Warrior>::iterator bad = vBadArmy.begin(); bad < vBadArmy.end(); bad++)
+                {
+                    if (!((*good)->x >= (*bad)->ex || (*good)->ex <= (*bad)->x ||
+                        (*good)->y >= (*bad)->ey || (*good)->ey <= (*bad)->y))
+                    {
+                        switch (rand() % 2)
+                        {
+                        case 0:
+                            score += 10 + 2 * level;
+                            killed = true;
+                            (*bad)->Release();
+                            vBadArmy.erase(bad);
+                            break;
+                            
+                        case 1:
+                            killed = true;
+                            (*good)->Release();
+                            vGoodArmy.erase(good);
+                            break;
+                        }
+                        break;
+                    }
+                }
+                if (killed)break;
+            }
+        }
+
+
+        //////////////////////////////////////////
+
         
-        
-        
+        //////////////////////////////////////////////////////////////////////////////////
         //DRAW FIELD *********************************
 
         field_delay++;
@@ -915,14 +1073,42 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 Draw->DrawBitmap(bmpKnightR, D2D1::RectF(Knight->x, Knight->y, Knight->ex, Knight->ey));
             else if (Knight->dir == dirs::left)
                 Draw->DrawBitmap(bmpKnightL, D2D1::RectF(Knight->x, Knight->y, Knight->ex, Knight->ey));
+
+            if (GreenLife && YellowLife && RedLife)
+            {
+                if (good_lifes > 400)
+                    Draw->DrawLine(D2D1::Point2F(10.0f, 650.0f), D2D1::Point2F((float)(good_lifes), 680.0f), GreenLife, 10.0f);
+                else if (good_lifes <= 400 && good_lifes >= 100)
+                    Draw->DrawLine(D2D1::Point2F(10.0f, 650.0f), D2D1::Point2F((float)(good_lifes), 680.0f), YellowLife, 10.0f);
+                else if (good_lifes < 100)
+                    Draw->DrawLine(D2D1::Point2F(10.0f, 650.0f), D2D1::Point2F((float)(good_lifes), 680.0f), RedLife, 10.0f);
+            }
+
         }
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        //DRAW TROOPS *********************************
 
+        if (!vGoodArmy.empty())
+        {
+            for (int i = 0; i < vGoodArmy.size(); ++i)
+            {
+                Draw->DrawBitmap(bmpGood[vGoodArmy[i]->GetFrame()],
+                    D2D1::RectF(vGoodArmy[i]->x, vGoodArmy[i]->y, vGoodArmy[i]->ex, vGoodArmy[i]->ey));
+            }
+        }
 
+        if (!vBadArmy.empty())
+        {
+            for (int i = 0; i < vBadArmy.size(); ++i)
+            {
+                Draw->DrawBitmap(bmpBad[vBadArmy[i]->GetFrame()],
+                    D2D1::RectF(vBadArmy[i]->x, vBadArmy[i]->y, vBadArmy[i]->ex, vBadArmy[i]->ey));
+            }
+        }
 
-
+        ///////////////////////////////////////////
         Draw->EndDraw();
     }
 
