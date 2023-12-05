@@ -80,8 +80,8 @@ int level = 1;
 int score = 0;
 int seconds = 0;
 
-int bad_move_wait = 30;
-int good_move_wait = 30;
+int bad_move_wait = 5;
+int good_move_wait = 5;
 
 wchar_t current_player[16] = L"A PLAYER";
 int name_size = 9;
@@ -917,37 +917,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
 
         }
-         
-        //CENTERS OF ARMIES *******************************
-
-        if (!vGoodArmy.empty())
-        {
-            good_army_center.x = (*vGoodArmy.begin())->x;
-            good_army_center.y = (*vGoodArmy.begin())->y;
-        }
-        else if (Knight)
-        {
-            good_army_center.x = Knight->x;
-            good_army_center.y = Knight->y;
-        }
         
-        if (!vBadArmy.empty())
-        {
-            bad_army_center.x = (*vBadArmy.begin())->x;
-            bad_army_center.y = (*vBadArmy.begin())->y;
-        }
-        else if(Castle)
-        {
-            bad_army_center.x = Castle->ex;
-            bad_army_center.y = Castle->ey;
-        }
         ///////////////////////////////////////////////////
 
         if (!vGoodArmy.empty())
         {
             if (good_move_wait < 0)
             {
-                good_move_wait = 20;
+                good_move_wait = 5;
+
+                good_army_center.x = (*vGoodArmy.begin())->ex;
+                good_army_center.y = (*vGoodArmy.begin())->ey;
+               
                 for (std::vector<Warrior>::iterator good = vGoodArmy.begin(); good < vGoodArmy.end(); ++good)
                 {
                     (*good)->Move(bad_army_center.x, bad_army_center.y);
@@ -962,15 +943,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 }
             } else good_move_wait--;
         }
+        else if (Knight && good_move_wait == 5)
+        {
+            good_army_center.x = Knight->x;
+            good_army_center.y = Knight->ey;
+        }
 
         if (!vBadArmy.empty())
         {
             if (bad_move_wait < 0)
             {
+                bad_move_wait = 5;
+                bad_army_center.x = (*vBadArmy.begin())->x;
+                bad_army_center.y = (*vBadArmy.begin())->y;
+                
+                
                 for (std::vector<Warrior>::iterator bad = vBadArmy.begin(); bad < vBadArmy.end(); ++bad)
                 {
                     (*bad)->Move(good_army_center.x, good_army_center.y);
-                   if ((*bad)->OutOfScreen(-1, Knight->ey, false, true))
+                    if ((*bad)->OutOfScreen(Knight->x, Knight->y, false, true))
                     {
                         good_lifes -= 20;
                         (*bad)->Release();
@@ -978,10 +969,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         break;
                     }
                 }
-                bad_move_wait = 20;
             }
             else bad_move_wait--;
         }
+        else if (Castle && bad_move_wait == 5)
+        {
+            bad_army_center.x = Castle->x;
+            bad_army_center.y = Castle->y;
+        }
+
 
         //FIGHT ************************************
 
@@ -1077,11 +1073,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             if (GreenLife && YellowLife && RedLife)
             {
                 if (good_lifes > 400)
-                    Draw->DrawLine(D2D1::Point2F(10.0f, 650.0f), D2D1::Point2F((float)(good_lifes), 680.0f), GreenLife, 10.0f);
+                    Draw->DrawLine(D2D1::Point2F(120.0f, 680.0f), D2D1::Point2F((float)(good_lifes / 2), 680.0f), GreenLife, 10.0f);
                 else if (good_lifes <= 400 && good_lifes >= 100)
-                    Draw->DrawLine(D2D1::Point2F(10.0f, 650.0f), D2D1::Point2F((float)(good_lifes), 680.0f), YellowLife, 10.0f);
+                    Draw->DrawLine(D2D1::Point2F(120.0f, 680.0f), D2D1::Point2F((float)(good_lifes / 2), 680.0f), YellowLife, 10.0f);
                 else if (good_lifes < 100)
-                    Draw->DrawLine(D2D1::Point2F(10.0f, 650.0f), D2D1::Point2F((float)(good_lifes), 680.0f), RedLife, 10.0f);
+                    Draw->DrawLine(D2D1::Point2F(120.0f, 680.0f), D2D1::Point2F((float)(good_lifes / 2), 680.0f), RedLife, 10.0f);
+            
+                if (bad_lifes > 400)
+                    Draw->DrawLine(D2D1::Point2F(120.0f, 60.0f), D2D1::Point2F((float)(bad_lifes / 2), 60.0f), GreenLife, 10.0f);
+                else if (bad_lifes <= 400 && bad_lifes >= 100)
+                    Draw->DrawLine(D2D1::Point2F(120.0f, 60.0f), D2D1::Point2F((float)(bad_lifes / 2), 60.0f), YellowLife, 10.0f);
+                else if (bad_lifes < 100)
+                    Draw->DrawLine(D2D1::Point2F(120.0f, 60.0f), D2D1::Point2F((float)(bad_lifes / 2), 60.0f), RedLife, 10.0f);
             }
 
         }

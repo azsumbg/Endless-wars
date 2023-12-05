@@ -60,8 +60,11 @@ class WORKAPI_API WARRIOR :public OBJECT
 	protected:
 		int max_frames = 7;
 		int frame_count = -1;
+
 		float slope = 1.0f;
-		float speed = 0.2f;
+		float intercept = 0;
+		float speed = 0.5f;
+		
 		float target_x = 0;
 		float target_y = 0;
 		bool slope_set = false;
@@ -73,7 +76,7 @@ class WORKAPI_API WARRIOR :public OBJECT
 		WARRIOR(float _where_x, float _where_y) :OBJECT(_where_x, _where_y, 40.0f, 30.0f)
 		{
 			slope = 1.0f;
-			speed = 1.0f;
+			speed = 0.2f;
 			target_x = 0;
 			target_y = 0;
 		}
@@ -81,7 +84,7 @@ class WORKAPI_API WARRIOR :public OBJECT
 		virtual ~WARRIOR() {};
 
 		virtual void Release() = 0;
-		virtual float SetSlope() = 0;
+		virtual void SetSlope() = 0;
 		virtual void Move(float _tar_x = 0, float _tar_y = 0) = 0;
 		virtual int GetFrame() = 0;
 		virtual bool OutOfScreen(float _x, float _y, bool check_ex, bool check_ey) const = 0;
