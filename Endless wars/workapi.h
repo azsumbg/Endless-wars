@@ -8,6 +8,7 @@
 
 enum class dirs { stop = 0, left = 1, right = 2, up = 3, down = 4 };
 enum class types { good = 0, bad = 1 };
+enum class port_types { port10 = 0, port20 = 1, port30 = 2, port40 = 3 };
 
 class WORKAPI_API OBJECT
 {
@@ -63,15 +64,14 @@ class WORKAPI_API WARRIOR :public OBJECT
 
 		float slope = 1.0f;
 		float intercept = 0;
-		float speed = 0.5f;
 		
 		float target_x = 0;
 		float target_y = 0;
-		bool slope_set = false;
-
+		
 	public:
 		types type = types::good;
 		bool obstacle = false;
+		float speed = 0.7f;
 
 		WARRIOR(float _where_x, float _where_y) :OBJECT(_where_x, _where_y, 40.0f, 30.0f)
 		{
@@ -89,8 +89,42 @@ class WORKAPI_API WARRIOR :public OBJECT
 		virtual int GetFrame() = 0;
 		virtual bool OutOfScreen(float _x, float _y, bool check_ex, bool check_ey) const = 0;
 };
+class WORKAPI_API PORTAL :public OBJECT
+{
+	public:
+		port_types type = port_types::port10;
+		int multiplier = 10;
+
+		PORTAL(port_types _type, float _x, float _y) :OBJECT(_x, _y, 100.0f, 94.0f)
+		{
+			type = _type;
+			switch (type)
+			{
+				case port_types::port10:
+					multiplier = 10;
+					break;
+
+				case port_types::port20:
+					multiplier = 20;
+					break;
+
+				case port_types::port30:
+					multiplier = 30;
+					break;
+
+				case port_types::port40:
+					multiplier = 40;
+					break;
+			}
+		}
+		void Release()
+		{
+			delete this;
+		}
+};
 
 typedef WARRIOR* Warrior;
 typedef OBJECT* Object;
+typedef PORTAL* Portal;
 
 extern WORKAPI_API Warrior iCreateWarrior(types _which_type, float _x, float _y);

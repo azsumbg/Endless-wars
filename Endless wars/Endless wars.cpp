@@ -70,6 +70,7 @@ bool in_client = true;
 bool b1_hglt = false;
 bool b2_hglt = false;
 bool b3_hglt = false;
+bool portal_active = false;
 
 bool name_set = false;
 
@@ -80,8 +81,8 @@ int level = 1;
 int score = 0;
 int seconds = 0;
 
-int bad_move_wait = 5;
-int good_move_wait = 5;
+//int bad_move_wait = 5;
+//int good_move_wait = 5;
 
 wchar_t current_player[16] = L"A PLAYER";
 int name_size = 9;
@@ -140,6 +141,8 @@ int bad_waves = 0;
 
 int good_lifes = 480;
 int bad_lifes = 480;
+
+Portal OnePortal = nullptr;
 
 /////////////////////////////////////////////////////
 template <typename COM> void ReleaseCOM(COM** which)
@@ -368,7 +371,7 @@ void InitD2D1()
 
     if (iWriteFactory)
         hr = iWriteFactory->CreateTextFormat(L"Gabriola", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
-            DWRITE_FONT_STRETCH_NORMAL, 14.0f, L"", &smallTextFormat);
+            DWRITE_FONT_STRETCH_NORMAL, 20.0f, L"", &smallTextFormat);
     if (hr != S_OK)
     {
         std::wofstream err(L".\\res\\data\\error.log", std::ios::app);
@@ -560,8 +563,8 @@ void InitGame()
     vGoodArmy.clear();
     vBadArmy.clear();
 
-    good_army_center = { 0,0 };
-    bad_army_center = { 0,0 };
+    good_army_center = { 100,500 };
+    bad_army_center = { 100,100 };
 
     if (Castle)Castle->Release();
     float randx = (float)(rand() % 250);
@@ -917,33 +920,28 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
 
         }
-        
+
         ///////////////////////////////////////////////////
 
         if (!vGoodArmy.empty())
         {
-            if (good_move_wait < 0)
-            {
-                good_move_wait = 5;
+            good_army_center.x = (vGoodArmy.front())->x;
+            good_army_center.y = (vGoodArmy.front())->y;
 
-                good_army_center.x = (*vGoodArmy.begin())->ex;
-                good_army_center.y = (*vGoodArmy.begin())->ey;
-               
-                for (std::vector<Warrior>::iterator good = vGoodArmy.begin(); good < vGoodArmy.end(); ++good)
+            for (std::vector<Warrior>::iterator good = vGoodArmy.begin(); good < vGoodArmy.end(); ++good)
+            {
+                (*good)->Move(bad_army_center.x, bad_army_center.y);
+                if ((*good)->OutOfScreen(Castle->x, Castle->ey, false, true))
                 {
-                    (*good)->Move(bad_army_center.x, bad_army_center.y);
-                    if ((*good)->OutOfScreen(-1, Castle->y, false, false))
-                    {
-                        (*good)->Release();
-                        vGoodArmy.erase(good);
-                        score += 10 + 2 * level;
-                        bad_lifes -= 20;
-                        break;
-                    }
+                    (*good)->Release();
+                    vGoodArmy.erase(good);
+                    score += 10 + 2 * level;
+                    bad_lifes -= 20;
+                    break;
                 }
-            } else good_move_wait--;
+            }
         }
-        else if (Knight && good_move_wait == 5)
+        else if (Knight)
         {
             good_army_center.x = Knight->x;
             good_army_center.y = Knight->ey;
@@ -951,33 +949,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (!vBadArmy.empty())
         {
-            if (bad_move_wait < 0)
+            bad_army_center.x = (vBadArmy.back())->x;
+            bad_army_center.y = (vBadArmy.back())->y;
+
+            for (std::vector<Warrior>::iterator bad = vBadArmy.begin(); bad < vBadArmy.end(); ++bad)
             {
-                bad_move_wait = 5;
-                bad_army_center.x = (*vBadArmy.begin())->x;
-                bad_army_center.y = (*vBadArmy.begin())->y;
-                
-                
-                for (std::vector<Warrior>::iterator bad = vBadArmy.begin(); bad < vBadArmy.end(); ++bad)
+                (*bad)->Move(good_army_center.x, good_army_center.y);
+                if ((*bad)->OutOfScreen(Knight->x, Knight->y, false, true))
                 {
-                    (*bad)->Move(good_army_center.x, good_army_center.y);
-                    if ((*bad)->OutOfScreen(Knight->x, Knight->y, false, true))
-                    {
-                        good_lifes -= 20;
-                        (*bad)->Release();
-                        vBadArmy.erase(bad);
-                        break;
-                    }
+                    good_lifes -= 20;
+                    (*bad)->Release();
+                    vBadArmy.erase(bad);
+                    break;
                 }
             }
-            else bad_move_wait--;
+
         }
-        else if (Castle && bad_move_wait == 5)
+        else if (Castle)
         {
             bad_army_center.x = Castle->x;
             bad_army_center.y = Castle->y;
         }
-
 
         //FIGHT ************************************
 
@@ -1012,7 +1004,48 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 if (killed)break;
             }
         }
+        
+        // ADD PORTALS ***************************
 
+        if (!OnePortal && rand() % 500 == 66)
+        {
+            OnePortal = new PORTAL(static_cast<port_types>(rand() % 4), client_width, 250.0f);
+            portal_active = true;
+        }
+
+        if (OnePortal)
+        {
+            OnePortal->x -= 0.5f;
+            OnePortal->SetDims();
+            if (OnePortal->ex <= 0)
+            {
+                OnePortal->Release();
+                OnePortal = nullptr;
+            }
+        }
+
+        if (OnePortal && !vGoodArmy.empty())
+        {
+            for (std::vector<Warrior>::iterator troop = vGoodArmy.begin(); troop < vGoodArmy.end(); ++troop)
+            {
+                if (!portal_active)break;
+
+                if (!(OnePortal->x >= (*troop)->ex || OnePortal->ex <= (*troop)->x
+                    || OnePortal->y >= (*troop)->ey || OnePortal->ey <= (*troop)->y))
+                {
+                    portal_active = false;
+
+                    if(OnePortal->ex>= 300.0f)
+                        for (int i = 0; i < OnePortal->multiplier; i++)
+                            vGoodArmy.push_back(iCreateWarrior(types::good, OnePortal->x - i * 5, OnePortal->y + i * 3));
+                    else
+                    for (int i = 0; i < OnePortal->multiplier; i++)
+                        vGoodArmy.push_back(iCreateWarrior(types::good, OnePortal->x + i * 5, OnePortal->y + i * 3));
+
+                    break;
+                }
+            }
+        }
 
         //////////////////////////////////////////
 
@@ -1111,6 +1144,34 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (OnePortal)
+        {
+            switch (OnePortal->type)
+            {
+            case port_types::port10:
+                Draw->DrawBitmap(bmpEnergy1, D2D1::RectF(OnePortal->x, OnePortal->y, OnePortal->ex, OnePortal->ey));
+                break;
+
+            case port_types::port20:
+                Draw->DrawBitmap(bmpEnergy2, D2D1::RectF(OnePortal->x, OnePortal->y, OnePortal->ex, OnePortal->ey));
+                break;
+
+            case port_types::port30:
+                Draw->DrawBitmap(bmpEnergy3, D2D1::RectF(OnePortal->x, OnePortal->y, OnePortal->ex, OnePortal->ey));
+                break;
+
+            case port_types::port40:
+                Draw->DrawBitmap(bmpEnergy4, D2D1::RectF(OnePortal->x, OnePortal->y, OnePortal->ex, OnePortal->ey));
+                break;
+            }
+        
+            wchar_t port_text[3] = L"\0";
+            wsprintf(port_text, L"%d", OnePortal->multiplier);
+            Draw->DrawText(port_text, 3, smallTextFormat, D2D1::RectF(OnePortal->x + 40.0f, OnePortal->y - 40.0f, OnePortal->ex, OnePortal->y),
+                ForceTxt);
+        }
+
+        
         ///////////////////////////////////////////
         Draw->EndDraw();
     }
