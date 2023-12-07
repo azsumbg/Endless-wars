@@ -197,12 +197,74 @@ void ErrExit(int which)
     std::remove(temp_file);
     exit(1);
 }
+BOOL CheckRecord()
+{
+    if (score < 1)return no_record;
 
+    int result = 0;
+    CheckFile(record_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; i++)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return first_record;
+    }
+    else
+    {
+        std::wifstream check(record_file);
+        check >> result;
+        check.close();
+
+        if (result < score)
+        {
+            std::wofstream rec(record_file);
+            rec << score << std::endl;
+            for (int i = 0; i < 16; i++)rec << static_cast<int>(current_player[i]) << std::endl;
+            rec.close();
+            return record;
+        }
+    }
+    return no_record;
+}
 void GameOver()
 {
+    pause = true;
     PlaySound(NULL, NULL, NULL);
     KillTimer(bHwnd, bTimer);
 
+    wchar_t status[25] = L"\0";
+    int status_size = 0;
+
+    switch (CheckRecord())
+    {
+    case no_record:
+        wcscpy_s(status, L"ООО ! ЗАГУБИ !");
+        status_size = 15;
+        PlaySound(L".\\res\\snd\\loose.wav", NULL, SND_ASYNC);
+        break;
+
+    case record:
+        wcscpy_s(status, L"СВЕТОВЕН РЕКОРД !");
+        status_size = 18;
+        PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
+        break;
+
+    case first_record:
+        wcscpy_s(status, L"ПЪРВИ РЕКОРД !");
+        status_size = 16;
+        PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
+        break;
+    }
+
+    Draw->BeginDraw();
+    Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkCyan));
+    if (bigTextFormat && ButTxt)
+        Draw->DrawText(status, status_size, bigTextFormat, D2D1::RectF(80.0f, 200.0f, client_width, client_height),
+            ButTxt);
+    Draw->EndDraw();
+    Sleep(6500);
 
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
@@ -578,6 +640,101 @@ void InitGame()
     Knight = new OBJECT(randx, 570.0f, 80.0f, 97.0f);
     if (Knight)Knight->dir = dirs::right;
 }
+void LevelUp()
+{
+    level++;
+    score += 50;
+
+    good_lifes = 480;
+    bad_lifes = 480;
+
+    good_waves = level + 5;
+    bad_waves = level + 8;
+    
+    vGoodArmy.clear();
+    vBadArmy.clear();
+
+    good_army_center = { 100,500 };
+    bad_army_center = { 100,100 };
+
+    if (Castle)Castle->Release();
+    float randx = (float)(rand() % 250);
+    if (randx < 100.0f)randx = 100.0f;
+
+    Castle = new OBJECT(randx, 70.0f, 150.0f, 120.0f);
+
+    if (Knight)Knight->Release();
+    randx = (float)(rand() % 320);
+    if (randx < 100.0f)randx = 100.0f;
+    Knight = new OBJECT(randx, 570.0f, 80.0f, 97.0f);
+    if (Knight)Knight->dir = dirs::right;
+
+    wchar_t start_text[20] = L"НИВОТО ПРЕМИНАТО !";
+    wchar_t show_text[20] = L"\0";
+
+    for (int i = 0; i < 20; i++)
+    {
+        mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+        Draw->BeginDraw();
+        Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkCyan));
+        show_text[i] = start_text[i];
+        if (nrmTextFormat && ButTxt)
+            Draw->DrawText(show_text, i, nrmTextFormat, D2D1::RectF(200.0f, 350.0f, client_width, client_height),
+                ButTxt);
+        Draw->EndDraw();
+        Sleep(50);
+    }
+    if (sound)PlaySound(L".\\res\\snd\\levelup.wav", NULL, SND_ASYNC);
+    Sleep(2000);
+}
+void HallOfFame()
+{
+    int result = 0;
+    CheckFile(record_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONASTERISK);
+        MessageBox(bHwnd, L"Все още няма рекорд на играта !\n\nПостарай се повече !",
+            L"Липсва файл !", MB_OK | MB_APPLMODAL | MB_ICONEXCLAMATION);
+        return;
+    }
+
+    wchar_t status[100] = L"Най - смел рицар: ";
+    wchar_t add[5] = L"\0";
+
+    wchar_t saved_player[16] = L"\0";
+
+    std::wifstream rec(record_file);
+    rec >> result;
+    wsprintf(add, L"%d", result);
+    for (int i = 0; i < 16; i++)
+    {
+        int letter = 0;
+        rec >> letter;
+        saved_player[i] = static_cast<wchar_t>(letter);
+    }
+    rec.close();
+
+    wcscat_s(status, saved_player);
+    wcscat_s(status, L"\nсветовен рекорд: ");
+    wcscat_s(status, add);
+    wcscat_s(status, L" точки");
+
+    result = 0;
+
+    for (int i = 0; i < 100; i++)
+    {
+        if (status[i] != '\0')result++;
+        else break;
+    }
+
+    if (sound)mciSendString(L"play .\\res\\snd\\tada.wav", NULL, NULL, NULL);
+    Draw->BeginDraw();
+    Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkCyan));
+    Draw->DrawText(status, result, bigTextFormat, D2D1::RectF(80.0f, 200.0f, client_width, client_height), ButTxt);
+    Draw->EndDraw();
+    Sleep(4000);
+}
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -773,13 +930,16 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
     case WM_TIMER:
         if (pause)break;
-        if (seconds % 20 == 0 && bad_waves > 0)
+        if (seconds % 7 == 0 && bad_waves > 0)
         {
             seconds = 1;
             for (int i = 0; i < 10; i++)
             {
                 if (Castle)
+                {
                     vBadArmy.push_back(iCreateWarrior(types::bad, (float)(Castle->x + rand() % 150), Castle->ey));
+                    vBadArmy[i]->speed += static_cast<float>(level * 0.05f);
+                }
             }
             bad_waves--;
         }
@@ -805,24 +965,68 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             SendMessage(hwnd, WM_CLOSE, NULL, NULL);
             break;
 
+
+        case mHoF:
+            pause = true;
+            HallOfFame();
+            pause = false;
+            break;
         }
         break;
 
     case WM_LBUTTONDOWN:
-        if (pause)break;
-        if (good_waves > 0)
+        if (cur_pos.y <= 50)
         {
+            if (cur_pos.x >= b1Rect.left && cur_pos.x <= b1Rect.right)
+            {
+                if (name_set)
+                {
+                    if (sound) mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+                    break;
+                }
+                if (sound) mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+                if (DialogBox(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &DlgProc) == IDOK)name_set = true;
+                break;
+            }
+
+            if (cur_pos.x >= b2Rect.left && cur_pos.x <= b2Rect.right)
+            {
+                if (sound)
+                {
+                    sound = false;
+                    PlaySound(NULL, NULL, NULL);
+                    break;
+                }
+                else
+                {
+                    sound = true;
+                    PlaySound(sound_file, NULL, SND_ASYNC || SND_LOOP);
+                    break;
+                }
+            }
+
+
+        }
+        else 
+        {
+            if (good_waves <= 0 && sound)
+            {
+                mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+                break;
+            }
             if (Knight)
             {
                 for (int i = 0; i < 10; ++i)
                 {
                     if (Knight)
-                        vGoodArmy.push_back(iCreateWarrior(types::good, (float)(Knight->x + rand() %80), Knight->y));
+                    {
+                        vGoodArmy.push_back(iCreateWarrior(types::good, (float)(Knight->x + rand() % 80), Knight->y));
+                        vGoodArmy[i]->speed += static_cast<float>(level * 0.05f);
+                    }
                 }
                 good_waves--;
             }
         }
-        else if (sound)mciSendString(L"play .\\res\\negative.wav", NULL, NULL, NULL);
         break;
 
     default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
@@ -830,7 +1034,6 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
     return (LRESULT)FALSE;
 }
-
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -1106,20 +1309,58 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             if (GreenLife && YellowLife && RedLife)
             {
                 if (good_lifes > 400)
-                    Draw->DrawLine(D2D1::Point2F(120.0f, 680.0f), D2D1::Point2F((float)(good_lifes / 2), 680.0f), GreenLife, 10.0f);
+                    Draw->DrawLine(D2D1::Point2F(Knight->x, 680.0f), 
+                        D2D1::Point2F((float)(Knight->x + (float)(good_lifes / 3)), 680.0f), GreenLife, 10.0f);
                 else if (good_lifes <= 400 && good_lifes >= 100)
-                    Draw->DrawLine(D2D1::Point2F(120.0f, 680.0f), D2D1::Point2F((float)(good_lifes / 2), 680.0f), YellowLife, 10.0f);
+                    Draw->DrawLine(D2D1::Point2F(Knight->x, 680.0f),
+                        D2D1::Point2F((float)(Knight->x + (float)(good_lifes / 3)), 680.0f), YellowLife, 10.0f);
                 else if (good_lifes < 100)
-                    Draw->DrawLine(D2D1::Point2F(120.0f, 680.0f), D2D1::Point2F((float)(good_lifes / 2), 680.0f), RedLife, 10.0f);
+                    Draw->DrawLine(D2D1::Point2F(Knight->x, 680.0f),
+                        D2D1::Point2F((float)(Knight->x + (float)(good_lifes / 3)), 680.0f), RedLife, 10.0f);
             
                 if (bad_lifes > 400)
-                    Draw->DrawLine(D2D1::Point2F(120.0f, 60.0f), D2D1::Point2F((float)(bad_lifes / 2), 60.0f), GreenLife, 10.0f);
+                    Draw->DrawLine(D2D1::Point2F(Castle->x, 60.0f), 
+                        D2D1::Point2F((float)(Castle->x + (float)(bad_lifes / 3)), 60.0f), GreenLife, 10.0f);
                 else if (bad_lifes <= 400 && bad_lifes >= 100)
-                    Draw->DrawLine(D2D1::Point2F(120.0f, 60.0f), D2D1::Point2F((float)(bad_lifes / 2), 60.0f), YellowLife, 10.0f);
+                    Draw->DrawLine(D2D1::Point2F(Castle->x, 60.0f), 
+                        D2D1::Point2F((float)(Castle->x + (float)(bad_lifes / 3)), 60.0f), YellowLife, 10.0f);
                 else if (bad_lifes < 100)
-                    Draw->DrawLine(D2D1::Point2F(120.0f, 60.0f), D2D1::Point2F((float)(bad_lifes / 2), 60.0f), RedLife, 10.0f);
+                    Draw->DrawLine(D2D1::Point2F(Castle->x, 60.0f), 
+                        D2D1::Point2F((float)(Castle->x + (float)(bad_lifes / 3)), 60.0f), RedLife, 10.0f);
             }
 
+        }
+
+        wchar_t stat_txt[100] = L"\0";
+        wchar_t stat_add[5] = L"\0";
+        int stat_size = 0;
+
+        wcscpy_s(stat_txt, current_player);
+        wcscat_s(stat_txt, L", оставащи роти: ");
+        wsprintf(stat_add, L"%d", good_waves);
+        wcscat_s(stat_txt, stat_add);
+        if (nrmTextFormat && ButTxt)
+        {
+            for (int i = 0; i < 100; ++i)
+            {
+                if (stat_txt[i] != '\0')stat_size++;
+                else break;
+            }
+            Draw->DrawText(stat_txt, stat_size, nrmTextFormat, 
+                D2D1::RectF(100.0f, client_height - 100, 400.0f, client_height), ButTxt);
+        }
+        stat_size = 0;
+        wcscpy_s(stat_txt, L", оставащи роти: ");
+        wsprintf(stat_add, L"%d", bad_waves);
+        wcscat_s(stat_txt, stat_add);
+        if (nrmTextFormat && ButTxt)
+        {
+            for (int i = 0; i < 100; ++i)
+            {
+                if (stat_txt[i] != '\0')stat_size++;
+                else break;
+            }
+            Draw->DrawText(stat_txt, stat_size, nrmTextFormat, D2D1::RectF(110.0f, 50.0f, 400.0f, 80.0f), ButTxt);
         }
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -1174,6 +1415,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         
         ///////////////////////////////////////////
         Draw->EndDraw();
+
+        if (bad_lifes <= 0)LevelUp();
+        if (good_lifes <= 0)GameOver();
     }
 
     /////////////////////////////////////////////////
