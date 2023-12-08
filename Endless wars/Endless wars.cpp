@@ -938,10 +938,13 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 if (Castle)
                 {
                     vBadArmy.push_back(iCreateWarrior(types::bad, (float)(Castle->x + rand() % 150), Castle->ey));
-                    vBadArmy[i]->speed += static_cast<float>(level * 0.05f);
                 }
             }
             bad_waves--;
+            if (!vBadArmy.empty())
+            {
+                for (int i = 0; i < vBadArmy.size(); ++i)vBadArmy[i]->speed += static_cast<float>(level * 0.05f);
+            }
         }
         seconds++;
         break;
@@ -1020,11 +1023,14 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 {
                     if (Knight)
                     {
-                        vGoodArmy.push_back(iCreateWarrior(types::good, (float)(Knight->x + rand() % 80), Knight->y));
-                        vGoodArmy[i]->speed += static_cast<float>(level * 0.05f);
+                        vGoodArmy.push_back(iCreateWarrior(types::good, (float)(Knight->x + rand() % 80), Knight->y));                       
                     }
                 }
                 good_waves--;
+                if (!vGoodArmy.empty())
+                {
+                    for(int i=0;i<vGoodArmy.size();++i)vGoodArmy[i]->speed += static_cast<float>(level * 0.05f);
+                }
             }
         }
         break;
@@ -1134,7 +1140,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             for (std::vector<Warrior>::iterator good = vGoodArmy.begin(); good < vGoodArmy.end(); ++good)
             {
                 (*good)->Move(bad_army_center.x, bad_army_center.y);
-                if ((*good)->OutOfScreen(Castle->x, Castle->ey, false, true))
+                if ((*good)->OutOfScreen(Castle->x, Castle->y, false, true))
                 {
                     (*good)->Release();
                     vGoodArmy.erase(good);
@@ -1158,7 +1164,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             for (std::vector<Warrior>::iterator bad = vBadArmy.begin(); bad < vBadArmy.end(); ++bad)
             {
                 (*bad)->Move(good_army_center.x, good_army_center.y);
-                if ((*bad)->OutOfScreen(Knight->x, Knight->y, false, true))
+                if ((*bad)->OutOfScreen(Knight->x, Knight->y + 10.0f, false, true))
                 {
                     good_lifes -= 20;
                     (*bad)->Release();
