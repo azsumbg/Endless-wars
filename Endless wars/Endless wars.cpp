@@ -133,8 +133,15 @@ ID2D1Bitmap* bmpBad[40];
 Object Castle = nullptr;
 Object Knight = nullptr;
 
+struct ROCK
+{
+    OBJECT pos;
+    int type = 0;
+};
+
 std::vector<Warrior> vGoodArmy;
 std::vector<Warrior> vBadArmy;
+std::vector<ROCK>vObstacles;
 
 int good_waves = 0;
 int bad_waves = 0;
@@ -253,7 +260,7 @@ void GameOver()
 
     case first_record:
         wcscpy_s(status, L"ПЪРВИ РЕКОРД !");
-        status_size = 16;
+        status_size = 15;
         PlaySound(L".\\res\\snd\\record.wav", NULL, SND_ASYNC);
         break;
     }
@@ -617,13 +624,13 @@ void InitGame()
     seconds = 0;
 
     good_waves = level + 5;
-    bad_waves = level + 8;
+    bad_waves = level + 6;
     good_lifes = 480;
     bad_lifes = 480;
 
-
     vGoodArmy.clear();
     vBadArmy.clear();
+    vObstacles.clear();
 
     good_army_center = { 100,500 };
     bad_army_center = { 100,100 };
@@ -639,6 +646,19 @@ void InitGame()
     if (randx < 100.0f)randx = 100.0f;
     Knight = new OBJECT(randx, 570.0f, 80.0f, 97.0f);
     if (Knight)Knight->dir = dirs::right;
+
+    for (int i = 0; i <= level; i++)
+    {
+        ROCK aRock{ OBJECT((float)(rand() % 110 + 200), (float)(rand() % 350 + 150), 50.0f, 36.0f), 0 };
+        if (rand() % 2 != 0)
+        {
+            aRock.pos.NewDims(50.0f, 29.0f);
+            aRock.type = 1;
+        }
+        vObstacles.push_back(aRock);
+    }
+
+
 }
 void LevelUp()
 {
@@ -649,10 +669,11 @@ void LevelUp()
     bad_lifes = 480;
 
     good_waves = level + 5;
-    bad_waves = level + 8;
+    bad_waves = level + 6;
     
     vGoodArmy.clear();
     vBadArmy.clear();
+    vObstacles.clear();
 
     good_army_center = { 100,500 };
     bad_army_center = { 100,100 };
@@ -668,6 +689,17 @@ void LevelUp()
     if (randx < 100.0f)randx = 100.0f;
     Knight = new OBJECT(randx, 570.0f, 80.0f, 97.0f);
     if (Knight)Knight->dir = dirs::right;
+
+    for (int i = 0; i <= level; i++)
+    {
+        ROCK aRock{ OBJECT((float)(rand() % 110 + 200), (float)(rand() % 350 + 150), 50.0f, 36.0f), 0 };
+        if (rand() % 2 != 0)
+        {
+            aRock.pos.NewDims(50.0f, 29.0f);
+            aRock.type = 1;
+        }
+        vObstacles.push_back(aRock);
+    }
 
     wchar_t start_text[20] = L"НИВОТО ПРЕМИНАТО !";
     wchar_t show_text[20] = L"\0";
@@ -679,7 +711,7 @@ void LevelUp()
         Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkCyan));
         show_text[i] = start_text[i];
         if (nrmTextFormat && ButTxt)
-            Draw->DrawText(show_text, i, nrmTextFormat, D2D1::RectF(200.0f, 350.0f, client_width, client_height),
+            Draw->DrawText(show_text, i, bigTextFormat, D2D1::RectF(100.0f, 200.0f, client_width, client_height),
                 ButTxt);
         Draw->EndDraw();
         Sleep(50);
@@ -734,6 +766,312 @@ void HallOfFame()
     Draw->DrawText(status, result, bigTextFormat, D2D1::RectF(80.0f, 200.0f, client_width, client_height), ButTxt);
     Draw->EndDraw();
     Sleep(4000);
+}
+void SaveGame()
+{
+    int result = 0;
+    CheckFile(save_file, &result);
+    if (result == FILE_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONASTERISK);
+        if (MessageBox(bHwnd, L"Съществува записана игра, която ще загубиш !\n\nНаистина ли да я презапиша ?",
+            L"Презапис ?", MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+
+    std::wofstream save(save_file);
+
+    save << level << std::endl;
+    save << score << std::endl;
+    save << seconds << std::endl;
+    
+    for (int i = 0; i < 16; ++i)save << static_cast<int>(current_player[i]) << std::endl;
+    save << name_size << std::endl;
+    save << name_set << std::endl;
+    
+    save << good_lifes << std::endl;
+    save << good_waves << std::endl;
+    save << bad_lifes << std::endl;
+    save << bad_waves << std::endl;
+
+    if (!OnePortal)save << 0 << std::endl;
+    else
+    {
+        save << 1 << std::endl;
+        save << OnePortal->x << std::endl;
+        save << OnePortal->y << std::endl;
+        save << static_cast<int>(OnePortal->type) << std::endl;
+        save << portal_active << std::endl;
+    }
+
+    save << vObstacles.size() << std::endl;
+
+    for (int i = 0; i < vObstacles.size(); i++)
+    {
+        save << vObstacles[i].pos.x << std::endl;
+        save << vObstacles[i].pos.y << std::endl;
+        save << vObstacles[i].type << std::endl;
+    }
+
+    if (!Knight)save << 0 << std::endl;
+    else
+    {
+        save << 1 << std::endl;
+        save << Knight->x << std::endl;
+        save << Knight->y << std::endl;
+        save << static_cast<int>(Knight->dir) << std::endl;
+    }
+
+    if (!Castle)save << 0 << std::endl;
+    else
+    {
+        save << 1 << std::endl;
+        save << Castle->x << std::endl;
+        save << Castle->y << std::endl;
+    }
+
+    save << vGoodArmy.size() << std::endl;
+
+    if (!vGoodArmy.empty())    
+    {
+        for (int i = 0; i < vGoodArmy.size(); i++)
+        {
+            save << vGoodArmy[i]->x << std::endl;
+            save << vGoodArmy[i]->y << std::endl;
+        }
+    }
+
+    save << vBadArmy.size() << std::endl;
+
+    if (!vBadArmy.empty())
+    {
+        for (int i = 0; i < vBadArmy.size(); i++)
+        {
+            save << vBadArmy[i]->x << std::endl;
+            save << vBadArmy[i]->y << std::endl;
+        }
+    }
+
+    save.close();
+
+    if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
+    MessageBox(bHwnd, L"Играта е запазена !", L"Запис !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+void LoadGame()
+{
+    int result = 0;
+    CheckFile(save_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONASTERISK);
+        MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече !",
+            L"Липсва файл !", MB_OK | MB_APPLMODAL | MB_ICONEXCLAMATION);
+        return;
+    }
+    else
+    {
+        if (sound)MessageBeep(MB_ICONASTERISK);
+        if (MessageBox(bHwnd, L"Настоящата игра ще бъде загубена !\n\nНаистина ли да я презапиша ?",
+            L"Презапис ?", MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+
+    std::wifstream save(save_file);
+
+    vGoodArmy.clear();
+    vBadArmy.clear();
+    vObstacles.clear();
+
+    if (Castle)Castle->Release();
+    if (Knight)Knight->Release();
+
+    save >> level;
+    save >> score;
+    save >> seconds;
+
+    for (int i = 0; i < 16; ++i)
+    {
+        int letter = 0;
+        save >> letter;
+        current_player[i]=static_cast<wchar_t>(letter);
+    }
+    save >> name_size;
+    save >> name_set;
+
+    save >> good_lifes;
+    save >> good_waves;
+    save >> bad_lifes;
+    save >> bad_waves;
+
+    save >> result;
+
+    if (result != 0)
+    {
+        float tx = 0;
+        float ty = 0;
+        int ttype = 0;
+
+        save >> tx;
+        save >> ty;
+        save >> ttype;
+        
+        OnePortal = new PORTAL(static_cast<port_types>(ttype), tx, ty);
+
+        save >> portal_active;
+    }
+
+    save >> result;
+
+    for (int i = 0; i < result; i++)
+    {
+        float tx = 0;
+        float ty = 0;
+        int ttype = 0;
+
+        save >> tx;
+        save >> ty;
+        save >> ttype;
+
+        ROCK aRock = { OBJECT(tx,ty, 50.0f,36.0f),0 };
+        if (ttype != 0)
+        {
+            aRock.pos.NewDims(50.0f, 29.0f);
+            aRock.type = 1;
+        }
+
+        vObstacles.push_back(aRock);
+    }
+
+    save >> result;
+
+    if (result == 0)GameOver();
+    else
+    {
+        float tx = 0;
+        float ty = 0;
+        int direction = 0;
+
+        save >> tx;
+        save >> ty;
+        save >> direction;
+        Knight = new OBJECT(tx, ty, 80.0f, 97.0f);
+        Knight->dir = static_cast<dirs>(direction);
+    }
+
+    save >> result;
+
+    if (result == 0)LevelUp();
+    else
+    {
+        float tx = 0;
+        float ty = 0;
+        
+        save >> tx;
+        save >> ty;
+        Castle = new OBJECT(tx, ty, 150.0f, 120.0f);
+    }
+
+    save >> result;
+
+    if (result!=0)
+    {
+        for (int i = 0; i < result; i++)
+        {
+            float tx = 0;
+            float ty = 0;
+            save >> tx;
+            save >> ty;
+            vGoodArmy.push_back(iCreateWarrior(types::good, tx, ty));
+        }
+    }
+
+    save >> result;
+
+    if (result != 0)
+    {
+        for (int i = 0; i < result; i++)
+        {
+            float tx = 0;
+            float ty = 0;
+            save >> tx;
+            save >> ty;
+            vBadArmy.push_back(iCreateWarrior(types::bad, tx, ty));
+        }
+    }
+
+    save.close();
+
+    if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
+    MessageBox(bHwnd, L"Играта е заредена !", L"Запис !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+
+}
+void ShowHelp()
+{
+    int result = 0;
+    CheckFile(help_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)MessageBeep(MB_ICONERROR);
+        MessageBox(bHwnd, L"Липсва помощ за играта !\n\nСвържете се с разработчика !",
+            L"Липсва файл !", MB_OK | MB_APPLMODAL | MB_ICONEXCLAMATION);
+        return;
+    }
+
+    wchar_t help_txt[1000] = L"\0";
+    int help_size = 0;
+
+    std::wifstream help(help_file);
+    
+    help >> help_size;
+
+    for (int i = 1; i < 1000; i++)
+    {
+        int letter = 0;
+        help >> letter;
+        help_txt[i] = static_cast<wchar_t>(letter);
+    }
+    help.close();
+
+    if (sound)mciSendString(L"play .\\res\\snd\tada.wav", NULL, NULL, NULL);
+
+    Draw->BeginDraw();
+    Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkGray));
+    Draw->FillRectangle(D2D1::RectF(0, 0, client_width, 50.0f), ButBckg);
+
+    if (nrmTextFormat && ButTxt && HgltButTxt && InactiveButTxt)
+    {
+        if (name_set)
+            Draw->DrawText(L"Име на рицар", 13, nrmTextFormat, D2D1::RectF(10.0f, 0, (float)b1Rect.right, 50.0f),
+                InactiveButTxt);
+        else
+        {
+            if (!b1_hglt)
+                Draw->DrawText(L"Име на рицар", 13, nrmTextFormat, D2D1::RectF(10.0f, 0, (float)b1Rect.right, 50.0f),
+                    ButTxt);
+            else
+                Draw->DrawText(L"Име на рицар", 13, nrmTextFormat, D2D1::RectF(10.0f, 0, (float)b1Rect.right, 50.0f),
+                    HgltButTxt);
+        }
+
+        if (!b2_hglt)
+            Draw->DrawText(L"Звуци ON / OFF", 15, nrmTextFormat, D2D1::RectF(210.0f, 0, (float)b2Rect.right, 50.0f),
+                ButTxt);
+        else
+            Draw->DrawText(L"Звуци ON / OFF", 15, nrmTextFormat, D2D1::RectF(210.0f, 0, (float)b2Rect.right, 50.0f),
+                HgltButTxt);
+
+        if (!b3_hglt)
+            Draw->DrawText(L"Помощ", 6, nrmTextFormat, D2D1::RectF(410.0f, 0, (float)b3Rect.right, 50.0f),
+                ButTxt);
+        else
+            Draw->DrawText(L"Помощ", 6, nrmTextFormat, D2D1::RectF(410.0f, 0, (float)b3Rect.right, 50.0f),
+                HgltButTxt);
+    }
+    if (nrmTextFormat && ButTxt)
+    {
+        Draw->DrawText(help_txt, help_size, nrmTextFormat,
+            D2D1::RectF(80.0f, 100.0f, client_width, client_height), ButTxt);
+    }
+    Draw->EndDraw();
+
 }
 
 INT_PTR CALLBACK DlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -968,6 +1306,17 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             SendMessage(hwnd, WM_CLOSE, NULL, NULL);
             break;
 
+        case mSave:
+            pause = true;
+            SaveGame();
+            pause = false;
+            break;
+
+        case mLoad:
+            pause = true;
+            LoadGame();
+            pause = false;
+            break;
 
         case mHoF:
             pause = true;
@@ -1008,7 +1357,23 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 }
             }
 
-
+            if (cur_pos.x >= b3Rect.left && cur_pos.x <= b3Rect.right)
+            {
+                if (!show_help)
+                {
+                    show_help = true;
+                    pause = true;
+                    ShowHelp();
+                    break;
+                }
+                else
+                {
+                    show_help = false;
+                    pause = false;
+                    ShowHelp();
+                    break;
+                }
+            }
         }
         else 
         {
@@ -1084,6 +1449,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     {
         ShowWindow(bHwnd, SW_SHOWDEFAULT);
         InitD2D1();
+        PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
     }
     
     //MAIN MSG LOOP *******************************
@@ -1132,6 +1498,38 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         ///////////////////////////////////////////////////
 
+        //OBSTACLES *******************************
+
+        if (!vObstacles.empty() && !vBadArmy.empty())
+        {
+            for (int i = 0; i < vObstacles.size(); i++)
+            {
+                for (int k = 0; k < vBadArmy.size(); k++)
+                {
+                    if (!(vObstacles[i].pos.x >= vBadArmy[k]->ex || vObstacles[i].pos.ex <= vBadArmy[k]->x
+                        || vObstacles[i].pos.y >= vBadArmy[k]->ey || vObstacles[i].pos.ey <= vBadArmy[k]->y))
+                        vBadArmy[k]->obstacle = true;
+                    else vBadArmy[k]->obstacle = false;
+                }
+            }
+        }
+
+        if (!vObstacles.empty() && !vGoodArmy.empty())
+        {
+            for (int i = 0; i < vObstacles.size(); i++)
+            {
+                for (int k = 0; k < vGoodArmy.size(); k++)
+                {
+                    if (!(vObstacles[i].pos.x >= vGoodArmy[k]->ex || vObstacles[i].pos.ex <= vGoodArmy[k]->x
+                        || vObstacles[i].pos.y >= vGoodArmy[k]->ey || vObstacles[i].pos.ey <= vGoodArmy[k]->y))
+                        vGoodArmy[k]->obstacle = true;
+                    else vGoodArmy[k]->obstacle = false;
+                }
+            }
+        }
+
+        ////////////////////////////////////////////
+
         if (!vGoodArmy.empty())
         {
             good_army_center.x = (vGoodArmy.front())->x;
@@ -1140,7 +1538,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             for (std::vector<Warrior>::iterator good = vGoodArmy.begin(); good < vGoodArmy.end(); ++good)
             {
                 (*good)->Move(bad_army_center.x, bad_army_center.y);
-                if ((*good)->OutOfScreen(Castle->x, Castle->y, false, true))
+                if ((*good)->OutOfScreen(Castle->x, Castle->ey - 20.0f, false, true))
                 {
                     (*good)->Release();
                     vGoodArmy.erase(good);
@@ -1249,7 +1647,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             vGoodArmy.push_back(iCreateWarrior(types::good, OnePortal->x - i * 5, OnePortal->y + i * 3));
                     else
                     for (int i = 0; i < OnePortal->multiplier; i++)
-                        vGoodArmy.push_back(iCreateWarrior(types::good, OnePortal->x + i * 5, OnePortal->y + i * 3));
+                        vGoodArmy.push_back(iCreateWarrior(types::good, OnePortal->x + i, OnePortal->y + i * 5));
 
                     break;
                 }
@@ -1258,6 +1656,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         //////////////////////////////////////////
 
+        
         
         //////////////////////////////////////////////////////////////////////////////////
         //DRAW FIELD *********************************
@@ -1359,6 +1758,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         wcscpy_s(stat_txt, L", оставащи роти: ");
         wsprintf(stat_add, L"%d", bad_waves);
         wcscat_s(stat_txt, stat_add);
+        wcscat_s(stat_txt, L" , ниво: ");
+        wsprintf(stat_add, L"%d", level);
+        wcscat_s(stat_txt, stat_add);
+        
         if (nrmTextFormat && ButTxt)
         {
             for (int i = 0; i < 100; ++i)
@@ -1416,6 +1819,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             wsprintf(port_text, L"%d", OnePortal->multiplier);
             Draw->DrawText(port_text, 3, smallTextFormat, D2D1::RectF(OnePortal->x + 40.0f, OnePortal->y - 40.0f, OnePortal->ex, OnePortal->y),
                 ForceTxt);
+        }
+
+        if (!vObstacles.empty())
+        {
+            for (int i = 0; i < vObstacles.size(); i++)
+            {
+                switch (vObstacles[i].type)
+                {
+                    case 0:
+                        Draw->DrawBitmap(bmpRock1, D2D1::RectF(vObstacles[i].pos.x, vObstacles[i].pos.y,
+                            vObstacles[i].pos.ex, vObstacles[i].pos.ey));
+                        break;
+
+                    case 1:
+                        Draw->DrawBitmap(bmpRock2, D2D1::RectF(vObstacles[i].pos.x, vObstacles[i].pos.y,
+                            vObstacles[i].pos.ex, vObstacles[i].pos.ey));
+                        break;
+                }
+            }
         }
 
         
